@@ -29,7 +29,7 @@ HTML_TEMPLATE = """
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>NONE_USERNAM3 | MAX INTEL</title>
+    <title>NONE_USERNAM3 | ADVANCED V2</title>
     <style>
         body { margin: 0; background: #000; color: #0f0; font-family: monospace; overflow: hidden; }
         #canvas-container { position: fixed; width: 100%; height: 100%; z-index: -1; }
@@ -43,7 +43,7 @@ HTML_TEMPLATE = """
     <div id="canvas-container"></div>
     <div class="ui">
         <div class="box">
-            <h1>MAX_INTEL_SYSTEM V4</h1>
+            <h1>ADVANCED V2</h1>
             <p>DEVELOPER: @None_usernam3</p>
             <a href="https://t.me/none_usernam3_is_here" class="btn">JOIN TELEGRAM</a>
             <p style="margin-top:20px; font-size:12px; color:#555;">ENDPOINT: /ny/none/usr/@None_usernam3/NUMBER/IND/NUM=91XXXXXXXXXX</p>
