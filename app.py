@@ -1,4 +1,3 @@
-import os
 import time
 import requests
 import phonenumbers
@@ -11,10 +10,8 @@ app = Flask(__name__)
 # ==========================================
 # CONFIGURATION
 # ==========================================
-# Main API URL
 BASE_API_URL = "https://zkwuyi37gjfhgslglaielyawfjha3w.vercel.app/query"
 
-# Branding Details
 BRANDING = {
     "developer": "Himanshu",
     "channel_owner": "@None_usernam3",
@@ -23,105 +20,129 @@ BRANDING = {
     "status": "Authorized Access"
 }
 
-# Browser jaisa dikhne ke liye Headers (Important for success)
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 
 # ==========================================
-# ROUTE
+# DATA CLEANING ENGINE (The Magic Part)
+# ==========================================
+def process_raw_data(raw_list):
+    """
+    Ye function gande data ko clean aur professional banata hai.
+    """
+    if not raw_list:
+        return None
+
+    # Consolidated Profile (Best Data Ek Jagah)
+    profile = {
+        "full_name": "N/A",
+        "father_name": "N/A",
+        "address": "N/A",
+        "document_id": "N/A",
+        "alternate_phones": []
+    }
+
+    cleaned_records = []
+    
+    seen_sources = set()
+
+    for item in raw_list:
+        # 1. REMOVE BAD STRING (TrueCaller Leak Text)
+        source = item.get('source_database', '')
+        if "In February 2019" in source or "leaked to data" in source:
+            item['source_database'] = "TrueCaller Verified"  # Replace with professional text
+
+        # 2. FIX SPELLING (adres -> address)
+        if 'adres' in item:
+            item['address'] = item.pop('adres') # Rename key
+
+        # 3. BUILD PROFILE (Extract best info)
+        if item.get('full_name'):
+            profile['full_name'] = item['full_name']
+        
+        if item.get('the_name_of_the_father'):
+            profile['father_name'] = item['the_name_of_the_father']
+        
+        if item.get('address'):
+            profile['address'] = item['address']
+            
+        if item.get('document_number'):
+            profile['document_id'] = item['document_number']
+
+        # 4. FILTER USELESS RECORDS (Sirf phone number wale records hatana)
+        # Agar record me sirf 'result_no' aur 'telephone' hai, toh usse skip karo
+        # lekin agar koi unique info hai toh rakho.
+        keys = item.keys()
+        if len(keys) <= 3 and 'telephone' in keys and 'result_no' in keys and 'source_database' not in keys:
+             # Add to alternates list instead of main records
+             if item.get('telephone'):
+                 profile['alternate_phones'].append(item['telephone'])
+             continue
+
+        cleaned_records.append(item)
+
+    # Alternate phones duplicate remove
+    profile['alternate_phones'] = list(set(profile['alternate_phones']))
+
+    return {
+        "target_summary": profile,
+        "detailed_records": cleaned_records
+    }
+
+# ==========================================
+# MAIN ROUTE
 # ==========================================
 @app.route('/ny/none/usr/@None_usernam3/NUMBER/IND/NUM=<number>', methods=['GET'])
 def get_info(number):
     start_time = time.time()
     
-    # 1. CLEANING & VALIDATION
-    # Remove any extra characters, keep only digits
+    # 1. Validation
     clean_num = "".join(filter(str.isdigit, number))
-    
-    # Check length (Indian numbers are usually 10 digits without country code)
     if not clean_num or len(clean_num) < 10:
-        return jsonify({
-            "branding": BRANDING,
-            "error": "Invalid Number Length",
-            "message": "Please enter a valid Indian number."
-        }), 400
+        return jsonify({"error": "Invalid Number"}), 400
 
-    # 2. LOCAL EXTRACTION (Phonenumbers Library)
+    # 2. Local Extraction
     try:
-        # Format number with +91 if missing
         fmt_num = f"+{clean_num}" if clean_num.startswith('91') else f"+91{clean_num}"
         parsed_num = phonenumbers.parse(fmt_num, "IN")
-        
-        # Check if valid Indian number
-        if not phonenumbers.is_valid_number(parsed_num) or phonenumbers.region_code_for_number(parsed_num) != "IN":
-            return jsonify({
-                "branding": BRANDING,
-                "error": "Non-Indian Number detected",
-                "message": "Only +91 Indian numbers are allowed."
-            }), 400
-
         local_data = {
-            "valid_format": True,
-            "service_provider": carrier.name_for_number(parsed_num, "en"),
-            "state_location": geocoder.description_for_number(parsed_num, "en"),
-            "time_zone": list(timezone.time_zones_for_number(parsed_num))
+            "carrier": carrier.name_for_number(parsed_num, "en"),
+            "circle": geocoder.description_for_number(parsed_num, "en"),
+            "valid": phonenumbers.is_valid_number(parsed_num)
         }
-    except Exception as e:
-        local_data = {"error": "Local parsing failed", "details": str(e)}
+    except:
+        local_data = {"error": "Local parsing failed"}
 
-    # 3. MAIN API CALL (Deep Search)
-    # Timeout badha kar 12 seconds kar diya hai (aapki API 5-6s leti hai, so ye safe hai)
+    # 3. Main API Call
+    api_status = "success"
     try:
-        response = requests.get(
-            BASE_API_URL, 
-            params={'q': clean_num}, 
-            headers=HEADERS, 
-            timeout=12
-        )
-        
+        response = requests.get(BASE_API_URL, params={'q': clean_num}, headers=HEADERS, timeout=12)
         if response.status_code == 200:
-            external_data = response.json()
+            raw_json = response.json()
+            # Yahan hum Data Cleaning Function ko call kar rahe hain
+            processed_data = process_raw_data(raw_json.get('data', []))
         else:
-            external_data = {
-                "status": "failed", 
-                "http_code": response.status_code, 
-                "message": "Main API reachable but returned error."
-            }
-            
-    except requests.exceptions.Timeout:
-        # Ye tab chalega agar 12 seconds se bhi zyada time laga
-        external_data = {
-            "status": "timeout",
-            "message": "Main API took too long (>12s) to respond."
-        }
-    except requests.exceptions.RequestException as e:
-        external_data = {
-            "status": "connection_error",
-            "message": str(e)
-        }
+            processed_data = {"message": "No records found"}
+            api_status = "empty"
+    except Exception as e:
+        processed_data = {"message": "Database unreachable", "error": str(e)}
+        api_status = "failed"
 
-    # 4. FINAL RESPONSE
-    total_time = f"{round(time.time() - start_time, 4)}s"
-    
-    # Update server time in branding for every request
+    # 4. Final Professional JSON Output
     current_branding = BRANDING.copy()
     current_branding["server_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     return jsonify({
         "branding": current_branding,
-        "performance": {"load_time": total_time},
-        "number_info": {
-            "raw_input": number,
-            "country": "India",
-            "local_extraction": local_data
+        "status": api_status,
+        "performance_latency": f"{round(time.time() - start_time, 4)}s",
+        "input_details": {
+            "number": clean_num,
+            "network_info": local_data
         },
-        "external_database": external_data
+        "intelligence_report": processed_data
     }), 200
 
-# ==========================================
-# SERVER EXECUTION
-# ==========================================
 if __name__ == '__main__':
-    # Threaded=True se parallel requests handle hongi
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, threaded=True)
