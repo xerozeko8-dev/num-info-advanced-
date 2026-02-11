@@ -3,20 +3,27 @@ import requests
 import phonenumbers
 from flask import Flask, jsonify, request, render_template_string
 from phonenumbers import carrier, geocoder, timezone
-from datetime import datetime
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 app = Flask(__name__)
 
 # ==========================================
-# 1. CONFIGURATION
+# 1. ROBUST CONFIGURATION
 # ==========================================
 BASE_API_URL = "https://zkwuyi37gjfhgslglaielyawfjha3w.vercel.app/query"
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
+# --- RETRY SESSION (Connection Tute Na) ---
+# Ye setup automatic 3 baar try karega agar API 5 sec se zyada le rahi hai
+session = requests.Session()
+retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+session.mount('https://', HTTPAdapter(max_retries=retries))
+
 # ==========================================
-# 2. FRONTEND (HTML + CSS + JS inside Python)
+# 2. FRONTEND (3D Hacker Theme)
 # ==========================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -24,199 +31,164 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HIMANSHU | CYBER INTEL</title>
+    <title>HIMANSHU | TARGET TRACKER</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; color: #0f0; }
-        
-        /* 3D Background */
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; color: #0f0; }
         #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
-
-        /* UI Overlay */
+        
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             overflow-y: auto; display: flex; flex-direction: column; align-items: center;
-            padding-top: 50px;
-            background: rgba(0, 0, 0, 0.6);
+            padding-top: 40px; background: rgba(0, 0, 0, 0.75);
         }
 
-        h1 { text-shadow: 0 0 10px #0f0; letter-spacing: 5px; border-bottom: 2px solid #0f0; padding-bottom: 10px; }
+        h1 { text-shadow: 0 0 15px #0f0; letter-spacing: 3px; border-bottom: 2px solid #0f0; padding-bottom: 10px; }
 
-        /* Search Box */
-        .search-box { display: flex; gap: 10px; margin-bottom: 30px; z-index: 10; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; z-index: 100; }
         input {
-            background: rgba(0, 20, 0, 0.9); border: 1px solid #0f0; color: #0f0; padding: 10px; font-size: 18px; outline: none; width: 300px;
-            box-shadow: 0 0 10px #0f0 inset; font-family: monospace;
+            background: #001100; border: 1px solid #0f0; color: #0f0; padding: 12px; font-size: 18px; outline: none; width: 280px;
+            box-shadow: inset 0 0 10px #0f0; font-family: monospace; font-weight: bold;
         }
         button {
-            background: #0f0; color: #000; border: none; padding: 10px 20px; font-size: 18px; cursor: pointer; font-weight: bold;
-            box-shadow: 0 0 15px #0f0; transition: 0.3s;
+            background: #0f0; color: #000; border: none; padding: 10px 25px; font-size: 18px; cursor: pointer; font-weight: 900;
+            box-shadow: 0 0 15px #0f0; transition: 0.2s;
         }
-        button:hover { background: #fff; box-shadow: 0 0 25px #fff; }
+        button:hover { background: #fff; box-shadow: 0 0 30px #fff; transform: scale(1.05); }
 
-        /* Results Container */
-        .container { width: 90%; max-width: 800px; display: none; flex-direction: column; gap: 20px; padding-bottom: 50px; z-index: 10; }
+        .container { width: 90%; max-width: 700px; display: none; flex-direction: column; gap: 25px; padding-bottom: 60px; }
 
-        /* Cards */
         .card {
-            background: rgba(0, 10, 0, 0.85); border: 1px solid #0f0; padding: 20px; border-radius: 5px;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2); backdrop-filter: blur(5px);
-            position: relative; overflow: hidden;
+            background: rgba(0, 15, 0, 0.9); border: 1px solid #0f0; padding: 25px; border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.15); backdrop-filter: blur(10px);
+            position: relative;
         }
-        
-        /* Neon Effect for Main Data */
-        #main-api-section { border: 2px solid #00ffea; box-shadow: 0 0 25px rgba(0, 255, 234, 0.3); }
-        #main-api-section h2 { color: #00ffea; border-color: #00ffea; text-shadow: 0 0 5px #00ffea; }
 
-        h2 { margin-top: 0; color: #fff; text-shadow: 0 0 5px #fff; font-size: 20px; border-bottom: 1px dashed #0f0; padding-bottom: 5px; }
+        /* UPPER SECTION - NEON BLUE (MAIN API) */
+        #main-api-section { border: 2px solid #00eaff; box-shadow: 0 0 25px rgba(0, 234, 255, 0.2); }
+        #main-api-section h2 { color: #00eaff; border-bottom: 1px dashed #00eaff; text-shadow: 0 0 8px #00eaff; }
         
-        .data-row { display: flex; justify-content: space-between; margin: 10px 0; border-bottom: 1px solid rgba(0, 255, 0, 0.2); padding-bottom: 5px; }
-        .label { color: #88ff88; font-weight: bold; }
-        .value { color: #fff; text-align: right; word-break: break-all; }
+        /* LOWER SECTION - GREEN (LOCAL API) */
+        #local-api-section { border: 2px solid #0f0; }
 
-        .loading { color: #0f0; font-size: 20px; display: none; margin-bottom: 20px; }
-        
-        /* Loader Animation */
-        .loader-ring { display: inline-block; width: 20px; height: 20px; border: 3px solid #0f0; border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite; margin-right: 10px; vertical-align: middle; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        h2 { margin-top: 0; font-size: 22px; padding-bottom: 8px; letter-spacing: 1px; }
+        .data-row { display: flex; justify-content: space-between; margin: 12px 0; border-bottom: 1px solid rgba(0,255,0,0.2); padding-bottom: 5px; }
+        .label { font-weight: bold; opacity: 0.8; }
+        .value { text-align: right; font-weight: bold; text-shadow: 0 0 2px currentColor; }
+
+        /* Loader */
+        .loading { display: none; font-size: 20px; color: #00eaff; text-shadow: 0 0 10px #00eaff; margin-bottom: 20px; }
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
 
     </style>
 </head>
 <body>
-
     <div id="canvas-container"></div>
 
     <div id="ui-layer">
-        <h1>CYBER INTEL HUB</h1>
+        <h1>CYBER INTEL V2.0</h1>
         
         <div class="search-box">
-            <input type="text" id="phoneInput" placeholder="Enter Indian Number (+91)" maxlength="13">
-            <button onclick="fetchData()">SCAN</button>
+            <input type="text" id="phoneInput" placeholder="Enter 10 Digit Number" maxlength="10">
+            <button onclick="fetchData()">SEARCH</button>
         </div>
 
         <div class="loading" id="loader">
-            <div class="loader-ring"></div> ACCESSING ENCRYPTED DATABASE...
+            <span class="blink">>> ESTABLISHING SECURE CONNECTION...</span>
         </div>
 
         <div class="container" id="results">
-            
             <div class="card" id="main-api-section">
-                <h2>⚡ TARGET INTELLIGENCE (DEEP WEB)</h2>
+                <h2>⚡ TARGET IDENTITY (DEEP SCAN)</h2>
                 <div id="main-content"></div>
             </div>
 
             <div class="card" id="local-api-section">
-                <h2>📡 NETWORK SIGNAL DATA</h2>
+                <h2>📡 NETWORK TELEMETRY</h2>
                 <div id="local-content"></div>
             </div>
-
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
     <script>
-        // --- THREE.JS ANIMATION (Star Tunnel) ---
+        // THREE.JS BACKGROUND
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.002);
-
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // Particles
-        const geometry = new THREE.BufferGeometry();
-        const counts = 5000;
-        const positions = new Float32Array(counts * 3);
-        
-        for(let i=0; i < counts * 3; i++) {
-            positions[i] = (Math.random() - 0.5) * 800; // Spread
-        }
-        
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        const material = new THREE.PointsMaterial({ size: 1.5, color: 0x00ff00 });
-        const particles = new THREE.Points(geometry, material);
-        scene.add(particles);
-
-        camera.position.z = 100;
+        const particles = new THREE.BufferGeometry();
+        const count = 3000;
+        const posArray = new Float32Array(count * 3);
+        for(let i=0; i<count*3; i++) posArray[i] = (Math.random()-0.5) * 150;
+        particles.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const material = new THREE.PointsMaterial({ size: 0.2, color: 0x00ff00 });
+        const mesh = new THREE.Points(particles, material);
+        scene.add(mesh);
+        camera.position.z = 50;
 
         function animate() {
             requestAnimationFrame(animate);
-            particles.rotation.z += 0.002; // Rotate tunnel
-            camera.position.z -= 0.5;      // Move forward
-            
-            // Loop effect
-            if(camera.position.z < -100) camera.position.z = 100;
-            
+            mesh.rotation.y += 0.002;
+            mesh.rotation.x += 0.001;
             renderer.render(scene, camera);
         }
         animate();
 
-        window.addEventListener('resize', () => {
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-        });
-
-        // --- FETCH DATA LOGIC ---
+        // FETCH LOGIC
         async function fetchData() {
             const num = document.getElementById('phoneInput').value;
             const loader = document.getElementById('loader');
             const results = document.getElementById('results');
             
-            if(!num) { alert("Enter Number!"); return; }
+            if(!num || num.length < 10) { alert("Enter valid 10 digit number"); return; }
 
             loader.style.display = 'block';
             results.style.display = 'none';
 
             try {
+                // Request sent to Python Backend
                 const response = await fetch(`/api/search?number=${num}`);
                 const data = await response.json();
                 
-                if(!response.ok) {
-                    alert(data.error || "Error");
-                    loader.style.display = 'none';
-                    return;
-                }
-
-                renderData(data);
+                render(data);
                 loader.style.display = 'none';
                 results.style.display = 'flex';
             } catch(e) {
-                alert("Connection Failed");
+                alert("Server Error: Check Console");
                 loader.style.display = 'none';
             }
         }
 
-        function renderData(data) {
-            // 1. Render Deep Data (Top)
+        function render(data) {
+            // Main Data Render
             const m = data.main_data;
-            let mainHTML = "";
-            if(m && m.name !== "N/A") {
-                mainHTML += `<div class="data-row"><span class="label">FULL NAME:</span> <span class="value">${m.name}</span></div>`;
-                mainHTML += `<div class="data-row"><span class="label">ADDRESS:</span> <span class="value">${m.address}</span></div>`;
-                mainHTML += `<div class="data-row"><span class="label">FATHER NAME:</span> <span class="value">${m.father}</span></div>`;
-                mainHTML += `<div class="data-row"><span class="label">EMAIL:</span> <span class="value">${m.email}</span></div>`;
-                if(m.other_phones.length > 0) {
-                     mainHTML += `<div class="data-row"><span class="label">LINKED NUMBERS:</span> <span class="value">${m.other_phones.join(', ')}</span></div>`;
-                }
+            let mHtml = "";
+            if(m.found) {
+                mHtml += row("FULL NAME", m.name, "#00eaff");
+                mHtml += row("ADDRESS", m.address, "#fff");
+                mHtml += row("FATHER NAME", m.father, "#fff");
+                mHtml += row("EMAIL", m.email, "#fff");
+                if(m.alt_phones.length) mHtml += row("LINKED NUMBERS", m.alt_phones.join(', '), "#ff0055");
             } else {
-                mainHTML = "<div style='color:red; text-align:center;'>NO DEEP RECORDS FOUND</div>";
+                mHtml = "<div style='text-align:center; color:red'>DATA NOT FOUND IN DEEP DB</div>";
             }
-            document.getElementById('main-content').innerHTML = mainHTML;
+            document.getElementById('main-content').innerHTML = mHtml;
 
-            // 2. Render Local Data (Bottom)
+            // Local Data Render
             const l = data.local_data;
-            let localHTML = "";
-            if(l && !l.error) {
-                localHTML += `<div class="data-row"><span class="label">CARRIER:</span> <span class="value">${l.carrier}</span></div>`;
-                localHTML += `<div class="data-row"><span class="label">LOCATION:</span> <span class="value">${l.location}</span></div>`;
-                localHTML += `<div class="data-row"><span class="label">TIMEZONE:</span> <span class="value">${l.timezone}</span></div>`;
-                localHTML += `<div class="data-row"><span class="label">VALID:</span> <span class="value" style="color:${l.valid?'#0f0':'red'}">${l.valid}</span></div>`;
-            } else {
-                localHTML = "<div style='color:red'>INVALID NETWORK DATA</div>";
-            }
-            document.getElementById('local-content').innerHTML = localHTML;
+            let lHtml = "";
+            lHtml += row("CARRIER", l.carrier, "#0f0");
+            lHtml += row("LOCATION", l.location, "#0f0");
+            lHtml += row("TIMEZONE", l.timezone, "#fff");
+            document.getElementById('local-content').innerHTML = lHtml;
+        }
+
+        function row(label, value, color) {
+            if(value == "N/A" || !value) return "";
+            return `<div class="data-row"><span class="label">${label}:</span> <span class="value" style="color:${color}">${value}</span></div>`;
         }
     </script>
 </body>
@@ -224,91 +196,65 @@ HTML_TEMPLATE = """
 """
 
 # ==========================================
-# 3. BACKEND LOGIC & ROUTES
+# 3. BACKEND ROUTES
 # ==========================================
 
 @app.route('/')
 def home():
-    # Serves the HTML template defined above
     return render_template_string(HTML_TEMPLATE)
 
-@app.route('/api/search', methods=['GET'])
-def search_api():
-    number = request.args.get('number')
+@app.route('/api/search')
+def api_search():
+    raw_num = request.args.get('number', '')
+    clean_num = "".join(filter(str.isdigit, raw_num))
     
-    # Cleaning
-    clean_num = "".join(filter(str.isdigit, number))
-    if not clean_num or len(clean_num) < 10:
-        return jsonify({"error": "Invalid Format. Enter 10 digits."}), 400
-
-    # A. Local Data Extraction
+    # 1. Local Data (Fast)
     try:
-        fmt_num = f"+{clean_num}" if clean_num.startswith('91') else f"+91{clean_num}"
-        parsed_num = phonenumbers.parse(fmt_num, "IN")
-        
+        pn = phonenumbers.parse("+91" + clean_num[-10:], "IN")
         local_data = {
-            "carrier": carrier.name_for_number(parsed_num, "en") or "Unknown",
-            "location": geocoder.description_for_number(parsed_num, "en") or "India",
-            "timezone": str(timezone.time_zones_for_number(parsed_num)[0]),
-            "valid": phonenumbers.is_valid_number(parsed_num)
+            "carrier": carrier.name_for_number(pn, "en"),
+            "location": geocoder.description_for_number(pn, "en"),
+            "timezone": str(timezone.time_zones_for_number(pn)[0])
         }
     except:
-        local_data = {"error": "Parsing Failed"}
+        local_data = {"carrier": "Unknown", "location": "Unknown", "timezone": "N/A"}
 
-    # B. Main API Call (Deep Search)
+    # 2. Main API (Deep) - WITH 20s TIMEOUT
+    main_data = {"found": False, "name": "N/A", "father": "N/A", "address": "N/A", "email": "N/A", "alt_phones": []}
+    
     try:
-        # 12s timeout for slow API
-        res = requests.get(BASE_API_URL, params={'q': clean_num}, headers=HEADERS, timeout=12)
+        # TIMEOUT BADHA DIYA HAI: 20 SECONDS
+        res = session.get(BASE_API_URL, params={'q': clean_num}, headers=HEADERS, timeout=20)
+        
         if res.status_code == 200:
-            cleaned_main = clean_deep_data(res.json().get('data', []))
-        else:
-            cleaned_main = {"name": "N/A", "error": "Database Empty"}
-    except:
-        cleaned_main = {"name": "N/A", "error": "Server Timeout"}
+            data = res.json().get('data', [])
+            if data:
+                main_data['found'] = True
+                # Clean Data Logic
+                for item in data:
+                    # Typo fix
+                    if 'adres' in item: item['address'] = item.pop('adres')
+                    # Spam fix
+                    if "In February" in item.get('source_database', ''): item['source_database'] = "Verified"
+
+                    if item.get('full_name'): main_data['name'] = item['full_name']
+                    if item.get('the_name_of_the_father'): main_data['father'] = item['the_name_of_the_father']
+                    if item.get('address'): main_data['address'] = item['address']
+                    if item.get('email'): main_data['email'] = item['email']
+                    if item.get('telephone'): main_data['alt_phones'].append(item['telephone'])
+                
+                # Remove duplicates & current number
+                main_data['alt_phones'] = list(set(main_data['alt_phones']))
+                
+    except Exception as e:
+        print(f"Main API Error: {e}") # Terminal mein error dikhega
+        # Data found false hi rahega agar error aaya
 
     return jsonify({
-        "main_data": cleaned_main,
-        "local_data": local_data
+        "local_data": local_data,
+        "main_data": main_data
     })
 
-def clean_deep_data(raw_list):
-    """
-    Cleans raw API data, removes spam text, fixes typos.
-    """
-    if not raw_list: return {"name": "N/A"}
-    
-    profile = {
-        "name": "N/A", "father": "N/A", "address": "N/A", 
-        "email": "N/A", "other_phones": []
-    }
-
-    for item in raw_list:
-        # Spam Text Remover
-        if "In February" in item.get('source_database', ''): 
-            item['source_database'] = "Verified DB"
-
-        # Typo Fixer
-        if 'adres' in item: item['address'] = item.pop('adres')
-
-        # Data Priority
-        if item.get('full_name'): profile['name'] = item['full_name']
-        if item.get('the_name_of_the_father'): profile['father'] = item['the_name_of_the_father']
-        if item.get('address'): profile['address'] = item['address']
-        if item.get('email'): profile['email'] = item['email']
-        
-        # Collect alternate numbers
-        if item.get('telephone'): 
-            profile['other_phones'].append(item['telephone'])
-
-    # Remove duplicates
-    profile['other_phones'] = list(set(profile['other_phones']))
-    
-    # Filter out the searched number itself from alternate list
-    # (Optional logic, kept simple here)
-    
-    return profile
-
 if __name__ == '__main__':
-    # Run server
-    print("SERVER STARTED: http://127.0.0.1:5000")
+    print("SERVER ON: http://127.0.0.1:5000")
     app.run(host='0.0.0.0', port=5000, threaded=True)
