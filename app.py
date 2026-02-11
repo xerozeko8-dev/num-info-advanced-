@@ -33,7 +33,7 @@ HTML_TEMPLATE = """
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CORE_INTEL | DDOS_PROTECTED</title>
+    <title>@None_Usernamz </title>
     <style>
         body { margin: 0; background: #000; color: #0f0; font-family: monospace; overflow: hidden; }
         #canvas-container { position: fixed; width: 100%; height: 100%; z-index: -1; }
@@ -49,7 +49,7 @@ HTML_TEMPLATE = """
     <div id="canvas-container"></div>
     <div class="ui">
         <div class="box">
-            <h1>STRICT_GHOST_SYSTEM_V5</h1>
+            <h1>buy From :  @None_Usernamz </h1>
             <p style="color: #fff;">DEVELOPER: @None_Usernamz</p>
             <a href="https://t.me/none_usernam3_is_here" class="btn">JOIN OFFICIAL CHANNEL</a>
             <p class="security-tag">SHIELD: ACTIVE | IP_LIMIT: 1000/DAY</p>
@@ -116,7 +116,7 @@ def secure_search(number):
     
     # Check if strictly Indian (Starting with 6-9 and total length 10 or 12 with 91)
     if not re.match(r'^(91)?[6-9][0-9]{9}$', clean_num):
-        return jsonify({"error": "STRICTLY ONLY INDIAN NUMBERS ALLOWED"}), 400
+        return jsonify({"error": "TG - @None_Usernamz | ONLY INDIAN NUMBERS ALLOWED"}), 400
 
     # Junk strings to block
     JUNK_BLOCK = ["Iran Telegram", "Alien TxtBase", "Facebook", "WhatsApp", "In February 2019", "leaked to data"]
